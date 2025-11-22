@@ -28,6 +28,6 @@ echo "This will open a window showing the robots in action!"
 echo ""
 
 ./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/play.py \
-    --task Isaac-Reach-Franka-v0 \
+    --task Isaac-Lift-Cube-Franka-v0 \
     --num_envs 32 \
     "$@"
