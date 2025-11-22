@@ -27,7 +27,10 @@ echo ""
 echo "This will open a window showing the robots in action!"
 echo ""
 
+TASK_NAME="Isaac-Lift-Cube-Franka-v0"
+REL_LOG_PATH="rsl_rl/franka_lift"
+
 ./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/play.py \
-    --task Isaac-Lift-Cube-Franka-v0 \
+    --task $TASK_NAME \
     --num_envs 32 \
     "$@"

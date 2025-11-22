@@ -195,3 +195,6 @@ View checkpoints:
 
 
 ./run_training.sh --num_envs 4096 --max_iterations 5000 --headless
+
+
+./run_training.sh --num_envs 4096 --max_iterations 10000 --resume --headless
