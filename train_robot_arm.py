@@ -14,11 +14,11 @@ import argparse
 import sys
 
 # Configuration
-TASK = "Isaac-Reach-Franka-v0"  # Change this to train different tasks
+TASK = "Isaac-Lift-Cube-Franka-IK-Rel-v0"  # Change this to train different tasks
 # Other options:
-#   "Isaac-Reach-Franka-IK-Rel-v0"  - Franka with IK control
-#   "Isaac-Lift-Cube-Franka-v0"     - Franka lift cube
-#   "Isaac-Reach-UR10-v0"           - UR10 reach
+#   "Isaac-Reach-Franka-v0"         - Franka reach only
+#   "Isaac-Lift-Cube-Franka-v0"     - Franka lift cube (joint control)
+#   "Isaac-Lift-Cube-Franka-IK-Abs-v0" - Franka lift cube (absolute IK)
 
 # Launch Isaac Sim
 from isaaclab.app import AppLauncher
