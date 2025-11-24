@@ -14,8 +14,9 @@ import argparse
 import sys
 
 # Configuration
-TASK = "Isaac-Lift-Cube-Franka-IK-Rel-v0"  # Change this to train different tasks
+TASK = "Isaac-Lift-Cube-Franka-IK-Rel-OnTable-v0"  # Custom task with table placement
 # Other options:
+#   "Isaac-Lift-Cube-Franka-IK-Rel-v0" - Original (places in mid-air)
 #   "Isaac-Reach-Franka-v0"         - Franka reach only
 #   "Isaac-Lift-Cube-Franka-v0"     - Franka lift cube (joint control)
 #   "Isaac-Lift-Cube-Franka-IK-Abs-v0" - Franka lift cube (absolute IK)
@@ -47,6 +48,9 @@ from isaaclab.utils.dict import print_dict
 from isaaclab.utils.io import dump_yaml
 from isaaclab_rl.rsl_rl import RslRlOnPolicyRunnerCfg, RslRlVecEnvWrapper
 import isaaclab_tasks
+
+# Import local custom task configurations
+import lift_task.config.franka
 
 # Prevent TF32 issues
 torch.backends.cuda.matmul.allow_tf32 = True

@@ -75,3 +75,14 @@ gym.register(
     },
     disable_env_checker=True,
 )
+
+# Custom task with table placement
+gym.register(
+    id="Isaac-Lift-Cube-Franka-IK-Rel-OnTable-v0",
+    entry_point="isaaclab.envs:ManagerBasedRLEnv",
+    kwargs={
+        "env_cfg_entry_point": f"{__name__}.ik_rel_env_cfg:FrankaCubeLiftEnvCfg",
+        "robomimic_bc_cfg_entry_point": f"{agents.__name__}:robomimic/bc.json",
+    },
+    disable_env_checker=True,
+)
