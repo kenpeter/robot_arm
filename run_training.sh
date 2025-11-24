@@ -12,7 +12,7 @@
 ISAACLAB_DIR="/home/kenpeter/work/IsaacLab"
 WORK_DIR="/home/kenpeter/work/robot_arm"
 LOGS_DIR="$WORK_DIR/logs"
-TASK_NAME="Isaac-Lift-Cube-Franka-v0"
+TASK_NAME="Isaac-Lift-Cube-Franka-IK-Rel-v0"
 # Note: The folder name below usually matches the task name but processed (e.g. franka_lift)
 # Update this if you change tasks frequently
 REL_LOG_PATH="rsl_rl/franka_lift" 
