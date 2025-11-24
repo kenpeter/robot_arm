@@ -65,3 +65,29 @@ def object_goal_distance(
     distance = torch.norm(des_pos_w - object.data.root_pos_w, dim=1)
     # rewarded if the object is lifted above the threshold
     return (object.data.root_pos_w[:, 2] > minimal_height) * (1 - torch.tanh(distance / std))
+
+
+def object_goal_distance_on_table(
+    env: ManagerBasedRLEnv,
+    std: float,
+    table_height: float,
+    height_tolerance: float,
+    command_name: str,
+    robot_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+    object_cfg: SceneEntityCfg = SceneEntityCfg("object"),
+) -> torch.Tensor:
+    """Reward the agent for placing the object at the goal position on the table."""
+    # extract the used quantities (to enable type-hinting)
+    robot: RigidObject = env.scene[robot_cfg.name]
+    object: RigidObject = env.scene[object_cfg.name]
+    command = env.command_manager.get_command(command_name)
+    # compute the desired position in the world frame
+    des_pos_b = command[:, :3]
+    des_pos_w, _ = combine_frame_transforms(robot.data.root_pos_w, robot.data.root_quat_w, des_pos_b)
+    # distance of the object to the goal position: (num_envs,)
+    distance = torch.norm(des_pos_w - object.data.root_pos_w, dim=1)
+    # check if object is near table height
+    height_diff = torch.abs(object.data.root_pos_w[:, 2] - table_height)
+    on_table = height_diff < height_tolerance
+    # reward if the object is on the table and close to the goal
+    return on_table * (1 - torch.tanh(distance / std))

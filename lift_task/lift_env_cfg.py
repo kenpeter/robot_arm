@@ -151,6 +151,13 @@ class RewardsCfg:
         weight=5.0,
     )
 
+    # New reward for placing object on table
+    placing_object_on_table = RewTerm(
+        func=mdp.object_goal_distance_on_table,
+        params={"std": 0.05, "table_height": 0.055, "height_tolerance": 0.02, "command_name": "object_pose"},
+        weight=20.0,
+    )
+
     # action penalty
     action_rate = RewTerm(func=mdp.action_rate_l2, weight=-1e-4)
 
