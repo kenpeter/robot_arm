@@ -11,8 +11,12 @@ from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
 from isaaclab.utils import configclass
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
 
-from isaaclab_tasks.manager_based.manipulation.lift import mdp
+from isaaclab_tasks.manager_based.manipulation.lift import mdp as isaaclab_mdp
 from isaaclab_tasks.manager_based.manipulation.lift.lift_env_cfg import LiftEnvCfg
+from isaaclab.managers import RewardTermCfg as RewTerm
+
+# Import local mdp with custom rewards
+from lift_task import mdp
 
 ##
 # Pre-defined configs
@@ -31,10 +35,10 @@ class FrankaCubeLiftEnvCfg(LiftEnvCfg):
         self.scene.robot = FRANKA_PANDA_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
 
         # Set actions for the specific robot type (franka)
-        self.actions.arm_action = mdp.JointPositionActionCfg(
+        self.actions.arm_action = isaaclab_mdp.JointPositionActionCfg(
             asset_name="robot", joint_names=["panda_joint.*"], scale=0.5, use_default_offset=True
         )
-        self.actions.gripper_action = mdp.BinaryJointPositionActionCfg(
+        self.actions.gripper_action = isaaclab_mdp.BinaryJointPositionActionCfg(
             asset_name="robot",
             joint_names=["panda_finger.*"],
             open_command_expr={"panda_finger_.*": 0.04},
@@ -42,6 +46,18 @@ class FrankaCubeLiftEnvCfg(LiftEnvCfg):
         )
         # Set the body name for the end effector
         self.commands.object_pose.body_name = "panda_hand"
+
+        # Override goal position to be on table (not in mid-air)
+        self.commands.object_pose.ranges = self.commands.object_pose.ranges.replace(
+            pos_z=(0.055, 0.055)
+        )
+
+        # Add custom placing reward to encourage placing on table
+        self.rewards.placing_object_on_table = RewTerm(
+            func=mdp.object_goal_distance_on_table,
+            params={"std": 0.05, "table_height": 0.055, "height_tolerance": 0.02, "command_name": "object_pose"},
+            weight=20.0,
+        )
 
         # Set Cube as object
         self.scene.object = RigidObjectCfg(
