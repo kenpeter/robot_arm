@@ -89,5 +89,17 @@ def object_goal_distance_on_table(
     # check if object is near table height
     height_diff = torch.abs(object.data.root_pos_w[:, 2] - table_height)
     on_table = height_diff < height_tolerance
-    # reward if the object is on the table and close to the goal
-    return on_table * (1 - torch.tanh(distance / std))
+
+    # Get gripper joint positions (last 2 joints are gripper fingers)
+    gripper_pos = robot.data.joint_pos[:, -2:]
+    # Gripper is "open" when joint positions are positive/large
+    gripper_openness = torch.mean(gripper_pos, dim=1)
+
+    # Base reward for position
+    position_reward = on_table * (1 - torch.tanh(distance / std))
+
+    # Additional bonus for having gripper open when object is on table at goal
+    gripper_bonus = torch.where(on_table & (distance < 0.05), gripper_openness, torch.zeros_like(gripper_openness))
+
+    # reward if the object is on the table, close to the goal, and gripper is releasing
+    return position_reward + gripper_bonus

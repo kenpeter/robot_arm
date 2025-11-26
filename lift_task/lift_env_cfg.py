@@ -151,7 +151,7 @@ class RewardsCfg:
         weight=5.0,
     )
 
-    # New reward for placing object on table
+    # New reward for placing object on table (includes gripper release bonus)
     placing_object_on_table = RewTerm(
         func=mdp.object_goal_distance_on_table,
         params={"std": 0.05, "table_height": 0.055, "height_tolerance": 0.02, "command_name": "object_pose"},
