@@ -18,11 +18,32 @@ if TYPE_CHECKING:
 
 
 def object_is_lifted(
-    env: ManagerBasedRLEnv, minimal_height: float, object_cfg: SceneEntityCfg = SceneEntityCfg("object")
+    env: ManagerBasedRLEnv,
+    minimal_height: float,
+    object_cfg: SceneEntityCfg = SceneEntityCfg("object"),
+    command_name: str | None = None,
+    near_goal_threshold: float = 0.1,
+    robot_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
 ) -> torch.Tensor:
-    """Reward the agent for lifting the object above the minimal height."""
+    # good idea
+    """Reward the agent for lifting the object above the minimal height, but stop rewarding when near goal."""
     object: RigidObject = env.scene[object_cfg.name]
-    return torch.where(object.data.root_pos_w[:, 2] > minimal_height, 1.0, 0.0)
+    is_lifted = object.data.root_pos_w[:, 2] > minimal_height
+
+    # If command_name is provided, check if near goal and reduce lifting reward
+    if command_name is not None:
+        robot: RigidObject = env.scene[robot_cfg.name]
+        command = env.command_manager.get_command(command_name)
+        des_pos_b = command[:, :3]
+        des_pos_w, _ = combine_frame_transforms(
+            robot.data.root_pos_w, robot.data.root_quat_w, des_pos_b
+        )
+        distance = torch.norm(des_pos_w - object.data.root_pos_w, dim=1)
+        near_goal = distance < near_goal_threshold
+        # Don't reward lifting when near goal
+        return torch.where(is_lifted & ~near_goal, 1.0, 0.0)
+
+    return torch.where(is_lifted, 1.0, 0.0)
 
 
 def object_ee_distance(
@@ -60,11 +81,15 @@ def object_goal_distance(
     command = env.command_manager.get_command(command_name)
     # compute the desired position in the world frame
     des_pos_b = command[:, :3]
-    des_pos_w, _ = combine_frame_transforms(robot.data.root_pos_w, robot.data.root_quat_w, des_pos_b)
+    des_pos_w, _ = combine_frame_transforms(
+        robot.data.root_pos_w, robot.data.root_quat_w, des_pos_b
+    )
     # distance of the end-effector to the object: (num_envs,)
     distance = torch.norm(des_pos_w - object.data.root_pos_w, dim=1)
     # rewarded if the object is lifted above the threshold
-    return (object.data.root_pos_w[:, 2] > minimal_height) * (1 - torch.tanh(distance / std))
+    return (object.data.root_pos_w[:, 2] > minimal_height) * (
+        1 - torch.tanh(distance / std)
+    )
 
 
 def object_goal_distance_on_table(
@@ -83,23 +108,31 @@ def object_goal_distance_on_table(
     command = env.command_manager.get_command(command_name)
     # compute the desired position in the world frame
     des_pos_b = command[:, :3]
-    des_pos_w, _ = combine_frame_transforms(robot.data.root_pos_w, robot.data.root_quat_w, des_pos_b)
+    des_pos_w, _ = combine_frame_transforms(
+        robot.data.root_pos_w, robot.data.root_quat_w, des_pos_b
+    )
     # distance of the object to the goal position: (num_envs,)
     distance = torch.norm(des_pos_w - object.data.root_pos_w, dim=1)
     # check if object is near table height
     height_diff = torch.abs(object.data.root_pos_w[:, 2] - table_height)
     on_table = height_diff < height_tolerance
 
-    # Get gripper joint positions (last 2 joints are gripper fingers)
-    gripper_pos = robot.data.joint_pos[:, -2:]
-    # Gripper is "open" when joint positions are positive/large
-    gripper_openness = torch.mean(gripper_pos, dim=1)
+    # Get gripper action from the action manager (last action is gripper binary action)
+    # For BinaryJointAction: positive = open, negative = close
+    gripper_action = env.action_manager.get_term("gripper_action").raw_actions.squeeze(-1)
 
-    # Base reward for position
-    position_reward = on_table * (1 - torch.tanh(distance / std))
+    # Only reward placing when near goal with gripper open (positive action)
+    near_goal = distance < 0.08
+    gripper_open = gripper_action > 0.0
 
-    # Additional bonus for having gripper open when object is on table at goal
-    gripper_bonus = torch.where(on_table & (distance < 0.05), gripper_openness, torch.zeros_like(gripper_openness))
+    # Strong reward for object on table, at goal, with gripper open
+    success_reward = torch.where(
+        on_table & near_goal & gripper_open,
+        (1 - torch.tanh(distance / std)) * 2.0,  # Double reward when gripper is open
+        torch.zeros_like(distance),
+    )
 
-    # reward if the object is on the table, close to the goal, and gripper is releasing
-    return position_reward + gripper_bonus
+    # Base reward for just being close to table position (encourages approach)
+    approach_reward = on_table * (1 - torch.tanh(distance / std)) * 0.3
+
+    return success_reward + approach_reward
