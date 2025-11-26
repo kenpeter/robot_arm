@@ -8,7 +8,7 @@ from __future__ import annotations
 import torch
 from typing import TYPE_CHECKING
 
-from isaaclab.assets import RigidObject
+from isaaclab.assets import Articulation, RigidObject
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.sensors import FrameTransformer
 from isaaclab.utils.math import combine_frame_transforms
@@ -100,39 +100,48 @@ def object_goal_distance_on_table(
     command_name: str,
     robot_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
     object_cfg: SceneEntityCfg = SceneEntityCfg("object"),
+    gripper_open_val: float = 0.04,
+    gripper_threshold: float = 0.005,
 ) -> torch.Tensor:
-    """Reward the agent for placing the object at the goal position on the table."""
+    """Reward the agent for placing the object at the goal position on the table with gripper open.
+
+    This follows IsaacLab's approach of checking gripper joint positions to ensure the object
+    is actually released, not just held in mid-air at the target location.
+    """
     # extract the used quantities (to enable type-hinting)
-    robot: RigidObject = env.scene[robot_cfg.name]
+    robot: Articulation = env.scene[robot_cfg.name]
     object: RigidObject = env.scene[object_cfg.name]
     command = env.command_manager.get_command(command_name)
+
     # compute the desired position in the world frame
     des_pos_b = command[:, :3]
     des_pos_w, _ = combine_frame_transforms(
         robot.data.root_pos_w, robot.data.root_quat_w, des_pos_b
     )
+
     # distance of the object to the goal position: (num_envs,)
     distance = torch.norm(des_pos_w - object.data.root_pos_w, dim=1)
+
     # check if object is near table height
     height_diff = torch.abs(object.data.root_pos_w[:, 2] - table_height)
     on_table = height_diff < height_tolerance
 
-    # Get gripper action from the action manager (last action is gripper binary action)
-    # For BinaryJointAction: positive = open, negative = close
-    gripper_action = env.action_manager.get_term("gripper_action").raw_actions.squeeze(-1)
+    # Check if gripper is OPEN by checking joint positions (IsaacLab approach)
+    # Get gripper joint positions (last 2 joints are panda_finger_joint1 and panda_finger_joint2)
+    gripper_pos = robot.data.joint_pos[:, -2:]
 
-    # Only reward placing when near goal with gripper open (positive action)
-    near_goal = distance < 0.08
-    gripper_open = gripper_action > 0.0
+    # Gripper is considered "open" when both fingers are close to gripper_open_val (0.04 for Franka)
+    finger1_open = torch.abs(gripper_pos[:, 0] - gripper_open_val) < gripper_threshold
+    finger2_open = torch.abs(gripper_pos[:, 1] - gripper_open_val) < gripper_threshold
+    gripper_is_open = finger1_open & finger2_open
 
-    # Strong reward for object on table, at goal, with gripper open
-    success_reward = torch.where(
-        on_table & near_goal & gripper_open,
-        (1 - torch.tanh(distance / std)) * 2.0,  # Double reward when gripper is open
-        torch.zeros_like(distance),
+    # Only give reward when object is on table AND gripper is actually open
+    # This prevents the robot from holding the cube in mid-air
+    placement_successful = on_table & gripper_is_open
+
+    # Reward for successful placement (on table + gripper open + close to goal)
+    return torch.where(
+        placement_successful,
+        (1 - torch.tanh(distance / std)),
+        torch.zeros_like(distance)
     )
-
-    # Base reward for just being close to table position (encourages approach)
-    approach_reward = on_table * (1 - torch.tanh(distance / std)) * 0.3
-
-    return success_reward + approach_reward
