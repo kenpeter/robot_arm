@@ -2,6 +2,9 @@
 
 > Training a Franka Panda robot arm to perform pick-and-place tasks using Deep Reinforcement Learning and Isaac Sim
 
+![Franka Panda Robot Arm in Isaac Sim](franka_robot.png)
+*Franka Panda robot performing pick-and-place manipulation in NVIDIA Isaac Sim*
+
 ## Project Overview
 
 This project demonstrates end-to-end implementation of robotic manipulation using modern RL techniques. A **Franka Panda 7-DOF robot arm** learns to autonomously grasp, lift, and precisely place objects through **Proximal Policy Optimization (PPO)** in a GPU-accelerated physics simulation.
